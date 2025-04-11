@@ -5,8 +5,11 @@ import (
 	"log/slog"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	wordspb "yadro.com/course/proto/words"
+	"yadro.com/course/search/core"
 )
 
 type Client struct {
@@ -26,16 +29,12 @@ func NewClient(address string, log *slog.Logger) (*Client, error) {
 }
 
 func (c Client) Norm(ctx context.Context, phrase string) ([]string, error) {
-	r, err := c.client.Norm(ctx, &wordspb.WordsRequest{Phrase: phrase})
+	reply, err := c.client.Norm(ctx, &wordspb.WordsRequest{Phrase: phrase})
 	if err != nil {
-		c.log.Error("Could not norm phrase", "error", err)
+		if status.Code(err) == codes.ResourceExhausted {
+			return nil, core.ErrBadArguments
+		}
 		return nil, err
 	}
-	c.log.Info("Norm success", "return", r.Words)
-	return r.Words, nil
-}
-
-func (c Client) Ping(ctx context.Context) error {
-	_, err := c.client.Ping(ctx, nil)
-	return err
+	return reply.GetWords(), nil
 }

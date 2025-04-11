@@ -25,7 +25,8 @@ type Comics struct {
 }
 
 type XKCDInfo struct {
-	ID          int
-	URL         string
-	Description string
+	ID          int    `json:"num"`
+	URL         string `json:"img"`
+	Description string `json:"transcaltript"`
+	Title       string `json:"title"`
 }
