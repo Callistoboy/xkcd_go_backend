@@ -3,6 +3,8 @@ package core
 import (
 	"cmp"
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -12,6 +14,7 @@ type Service struct {
 	log   *slog.Logger
 	db    DB
 	words Words
+	index *Index
 }
 
 func NewService(
@@ -20,6 +23,7 @@ func NewService(
 		log:   log,
 		db:    db,
 		words: words,
+		index: NewIndex(),
 	}, nil
 }
 
@@ -46,27 +50,86 @@ func (s *Service) Search(ctx context.Context, phrase string, limit int) ([]Comic
 			scores[ID]++
 		}
 	}
+
+	return s.fetch(ctx, scores, limit)
+}
+
+func (s *Service) SearchIndex(ctx context.Context, phrase string, limit int) ([]Comics, error) {
+	keywords, err := s.words.Norm(ctx, phrase)
+	if err != nil {
+		s.log.Error("failed to find keywords", "error", err)
+		return nil, err
+	}
+	s.log.Debug("normalized query", "keywords", keywords)
+
+	// comics ID -> number of findings
+	scores := map[int]int{}
+	for _, keyword := range keywords {
+		for _, ID := range s.index.Get(keyword) {
+			scores[ID]++
+		}
+	}
+
+	return s.fetch(ctx, scores, limit)
+
+}
+
+func (s *Service) fetch(ctx context.Context, scores map[int]int, limit int) ([]Comics, error) {
 	s.log.Debug("relevant comics", "count", len(scores))
+
+	// sort by number of findings
 	sorted := slices.SortedFunc(maps.Keys(scores), func(a, b int) int {
-		return cmp.Compare(scores[b], scores[a])
+		return cmp.Compare(scores[b], scores[a]) // desc
 	})
 
+	// limit results
 	if len(sorted) < limit {
 		limit = len(sorted)
 	}
 	sorted = sorted[:limit]
 
+	// fetch comics
 	result := make([]Comics, 0, len(sorted))
-	for _, id := range sorted {
-		comic, err := s.db.Get(ctx, id)
+	for _, ID := range sorted {
+		comics, err := s.db.Get(ctx, ID)
 		if err != nil {
-			s.log.Error("failed to get comic", "id", id, "error", err)
+			s.log.Error("failed to fetch comics", "id", ID, "error", err)
 			return nil, err
 		}
-		result = append(result, comic)
+		comics.Score = scores[ID]
+		result = append(result, comics)
 	}
-
 	s.log.Debug("returning comics", "count", len(result))
 
 	return result, nil
+}
+
+func (s *Service) BuildIndex(ctx context.Context) error {
+	s.log.Debug("building index")
+	s.index.Clear()
+	s.log.Debug("cleared current index")
+	lastID, err := s.db.LastID(ctx)
+	s.log.Debug(fmt.Sprintf("got lastID: %d", lastID))
+
+	if err != nil {
+		return err
+	}
+
+	var comicsCount int
+	for ID := 1; ID <= lastID; ID++ {
+		comics, err := s.db.Get(ctx, ID)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				continue
+			}
+			s.log.Error("failed to fetch comics", "id", ID, "error", err)
+			return err
+		}
+		s.index.Put(ID, comics.Keywords)
+		comicsCount++
+	}
+
+	s.log.Debug("rebuilt index", "comics count", comicsCount)
+	return nil
+
 }

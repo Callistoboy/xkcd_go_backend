@@ -14,6 +14,7 @@ import (
 	searchpb "yadro.com/course/proto/search"
 	"yadro.com/course/search/adapters/db"
 	searchgrpc "yadro.com/course/search/adapters/grpc"
+	"yadro.com/course/search/adapters/initiator"
 	"yadro.com/course/search/adapters/words"
 	"yadro.com/course/search/config"
 	"yadro.com/course/search/core"
@@ -39,6 +40,10 @@ func run(cfg config.Config, log *slog.Logger) error {
 	log.Info("starting server")
 	log.Debug("debug messages are enabled")
 
+	// context for Ctrl-C
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	// database adapter
 	storage, err := db.New(log, cfg.DBAddress)
 	if err != nil {
@@ -57,6 +62,9 @@ func run(cfg config.Config, log *slog.Logger) error {
 		return fmt.Errorf("failed create Search service: %v", err)
 	}
 
+	// initiator
+	initiator.RunIndexUpdate(ctx, searcher, cfg.IndexTTL, log)
+
 	// grpc server
 	listener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
@@ -66,10 +74,6 @@ func run(cfg config.Config, log *slog.Logger) error {
 	s := grpc.NewServer()
 	searchpb.RegisterSearchServer(s, searchgrpc.NewServer(searcher))
 	reflection.Register(s)
-
-	// context for Ctrl-C
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
 
 	go func() {
 		<-ctx.Done()
