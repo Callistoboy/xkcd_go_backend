@@ -298,3 +298,32 @@ func NewSearchIndexHandler(log *slog.Logger, searcher core.Searcher, words core.
 		w.WriteHeader(http.StatusOK)
 	}
 }
+
+type Authenticator interface {
+	Login(user, password string) (string, error)
+}
+
+type Login struct {
+	Name     string `json:"name"`
+	Password string `json:"password"`
+}
+
+
+func NewLoginHandler(log *slog.Logger, auth Authenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var l Login
+		if err := json.NewDecoder(r.Body).Decode(&l); err != nil {
+			log.Error("could not decode login form", "error", err)
+			http.Error(w, "could not parse login data", http.StatusBadRequest)
+			return
+		}
+		token, err := auth.Login(l.Name, l.Password)
+		if err != nil {
+			log.Error("could not authenticate", "user", l.Name, "error", err)
+			http.Error(w, core.ErrUserNotFound.Error(), http.StatusUnauthorized)
+		}
+		if _, err := w.Write([]byte(token)); err != nil {
+			log.Error("failed to write reply", "error", err)
+		}
+	}
+}
