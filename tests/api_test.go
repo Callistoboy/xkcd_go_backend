@@ -1,10 +1,13 @@
 package words_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -49,9 +52,24 @@ type UpdateStatus struct {
 	Status string `json:"status"`
 }
 
+func login(t *testing.T) string {
+	data := bytes.NewBufferString(`{"name":"admin", "password":"password"}`)
+	req, err := http.NewRequest(http.MethodPost, address+"/api/login", data)
+	require.NoError(t, err, "cannot make request")
+	resp, err := client.Do(req)
+	require.NoError(t, err, "could not send login command")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	token, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	return string(token)
+}
+
 func prepare(t *testing.T) {
 	req, err := http.NewRequest(http.MethodDelete, address+"/api/db", nil)
 	require.NoError(t, err, "cannot make request")
+	token := login(t)
+	req.Header.Add("Authorization", "Token "+token)
 	resp, err := client.Do(req)
 	require.NoError(t, err, "could not send clean up command")
 	defer resp.Body.Close()
@@ -64,6 +82,37 @@ func prepare(t *testing.T) {
 	require.Equal(t, 0, st.WordsUnique)
 
 	require.Equal(t, "idle", status(t))
+}
+
+func update(t *testing.T) int {
+	req, err := http.NewRequest(http.MethodPost, address+"/api/db/update", nil)
+	require.NoError(t, err, "cannot make request")
+	token := login(t)
+	req.Header.Add("Authorization", "Token "+token)
+	resp, err := client.Do(req)
+	require.NoError(t, err, "could not send update command")
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
+func status(t *testing.T) string {
+	resp, err := client.Get(address + "/api/db/status")
+	require.NoError(t, err, "could not get status")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var status UpdateStatus
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&status), "cannot decode")
+	return status.Status
+}
+
+func stats(t *testing.T) UpdateStats {
+	resp, err := client.Get(address + "/api/db/stats")
+	require.NoError(t, err, "could not get stats")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var stats UpdateStats
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&stats), "cannot decode")
+	return stats
 }
 
 func TestEmptyDB(t *testing.T) {
@@ -101,35 +150,6 @@ func TestUpdate(t *testing.T) {
 	require.True(t, st.ComicsTotal > 3000, "there are more than 3000 comics in XKCD")
 	require.True(t, 1000 < st.WordsTotal, "not enough total words in DB")
 	require.True(t, 100 < st.WordsUnique, "not enough unique words in DB")
-}
-
-func update(t *testing.T) int {
-	req, err := http.NewRequest(http.MethodPost, address+"/api/db/update", nil)
-	require.NoError(t, err, "cannot make request")
-	resp, err := client.Do(req)
-	require.NoError(t, err, "could not send update command")
-	defer resp.Body.Close()
-	return resp.StatusCode
-}
-
-func status(t *testing.T) string {
-	resp, err := client.Get(address + "/api/db/status")
-	require.NoError(t, err, "could not get status")
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	var status UpdateStatus
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&status), "cannot decode")
-	return status.Status
-}
-
-func stats(t *testing.T) UpdateStats {
-	resp, err := client.Get(address + "/api/db/stats")
-	require.NoError(t, err, "could not get stats")
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	var stats UpdateStats
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&stats), "cannot decode")
-	return stats
 }
 
 type Comics struct {
@@ -302,4 +322,106 @@ func TestIndexSearchPhrasesLongTest(t *testing.T) {
 			require.Containsf(t, urls, tc.url, "could not find %q", tc.phrase)
 		})
 	}
+}
+
+// 200 tests in packs of 20, with concurrency 10. 100 reqs must be ok, the rest - 503
+func TestSearchConcurrency(t *testing.T) {
+	const numPacks = 10
+	const packSize = 20
+	const concurrency = 10
+	update(t)
+	var countOK atomic.Int64
+	var countBusy atomic.Int64
+	for range numPacks {
+		var wg sync.WaitGroup
+		wg.Add(packSize)
+		for range packSize {
+			go func() {
+				defer wg.Done()
+				resp, err := client.Get(address + "/api/search?phrase=linux")
+				require.NoError(t, err, "failed to search")
+				defer resp.Body.Close()
+				switch resp.StatusCode {
+				case http.StatusServiceUnavailable:
+					countBusy.Add(1)
+				case http.StatusOK:
+					countOK.Add(1)
+				}
+			}()
+		}
+		wg.Wait()
+	}
+	require.True(t, int64(concurrency*numPacks) < countOK.Load(), "need some http ok")
+	require.True(t, int64(0) < countBusy.Load(), "need at least some http busy")
+	require.Equal(t, int64(numPacks*packSize), countOK.Load()+countBusy.Load(),
+		"need only ok and busy statuses")
+}
+
+func TestSearchRateLong(t *testing.T) {
+	const rate = 100
+	const numReq = 1000
+	update(t)
+	time.Sleep(30 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(numReq)
+	start := time.Now()
+	for range numReq {
+		go func() {
+			defer wg.Done()
+			resp, err := client.Get(address + "/api/isearch?phrase=linux")
+			require.NoError(t, err, "failed to search")
+			defer resp.Body.Close()
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}()
+	}
+	wg.Wait()
+	duration := time.Since(start)
+	actualRate := numReq / duration.Seconds()
+
+	require.InDelta(t, rate, actualRate, rate/10)
+}
+
+func TestBadLogin(t *testing.T) {
+	data := bytes.NewBufferString(`{"name":"user", "password":""}`)
+	req, err := http.NewRequest(http.MethodPost, address+"/api/login", data)
+	require.NoError(t, err, "cannot make request")
+	resp, err := client.Do(req)
+	require.NoError(t, err, "could not send login command")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestBadPassword(t *testing.T) {
+	data := bytes.NewBufferString(`{"name":"admin", "password":""}`)
+	req, err := http.NewRequest(http.MethodPost, address+"/api/login", data)
+	require.NoError(t, err, "cannot make request")
+	resp, err := client.Do(req)
+	require.NoError(t, err, "could not send login command")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestGoodLogin(t *testing.T) {
+	data := bytes.NewBufferString(`{"name":"admin", "password":"password"}`)
+	req, err := http.NewRequest(http.MethodPost, address+"/api/login", data)
+	require.NoError(t, err, "cannot make request")
+	resp, err := client.Do(req)
+	require.NoError(t, err, "could not send login command")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	token, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.True(t, len(token) > 0)
+}
+
+func TestLoginExpiredVeryLong(t *testing.T) {
+	token := login(t)
+	time.Sleep(125 * time.Second)
+	req, err := http.NewRequest(http.MethodPost, address+"/api/db/update", nil)
+	require.NoError(t, err, "cannot make request")
+	req.Header.Add("Authorization", "Token "+token)
+	resp, err := client.Do(req)
+	require.NoError(t, err, "could not send update command")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

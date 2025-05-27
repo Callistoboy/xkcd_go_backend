@@ -308,7 +308,6 @@ type Login struct {
 	Password string `json:"password"`
 }
 
-
 func NewLoginHandler(log *slog.Logger, auth Authenticator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var l Login
