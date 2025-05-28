@@ -300,7 +300,7 @@ func NewSearchIndexHandler(log *slog.Logger, searcher core.Searcher, words core.
 }
 
 type Authenticator interface {
-	Login(user, password string) (string, error)
+	Login(user, password, sub string) (string, error)
 }
 
 type Login struct {
@@ -316,7 +316,7 @@ func NewLoginHandler(log *slog.Logger, auth Authenticator) http.HandlerFunc {
 			http.Error(w, "could not parse login data", http.StatusBadRequest)
 			return
 		}
-		token, err := auth.Login(l.Name, l.Password)
+		token, err := auth.Login(l.Name, l.Password, "")
 		if err != nil {
 			log.Error("could not authenticate", "user", l.Name, "error", err)
 			http.Error(w, core.ErrUserNotFound.Error(), http.StatusUnauthorized)

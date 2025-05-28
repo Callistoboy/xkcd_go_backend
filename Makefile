@@ -27,3 +27,7 @@ lint:
 
 proto:
 	make -C search-services protobuf
+
+unit:
+	make -C search-services test
+	mv search-services/cover.html .

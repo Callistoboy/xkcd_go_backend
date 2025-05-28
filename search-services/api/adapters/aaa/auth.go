@@ -3,7 +3,6 @@ package aaa
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"time"
 
@@ -13,13 +12,17 @@ import (
 const secretKey = "phoenix"
 const adminRole = "superuser"
 
+type Logger interface {
+	Error(msg string, keysAndValues ...interface{})
+}
+
 type AAA struct {
 	users    map[string]string
 	tokenTTL time.Duration
-	log      *slog.Logger
+	log      Logger
 }
 
-func New(tokenTTL time.Duration, log *slog.Logger) (AAA, error) {
+func New(tokenTTL time.Duration, log Logger) (AAA, error) {
 	const adminUser = "ADMIN_USER"
 	const adminPass = "ADMIN_PASSWORD"
 
@@ -39,7 +42,7 @@ func New(tokenTTL time.Duration, log *slog.Logger) (AAA, error) {
 	}, nil
 }
 
-func (a AAA) Login(name, password string) (string, error) {
+func (a AAA) Login(name, password, sub string) (string, error) {
 	if name == "" {
 		return "", errors.New("empty user")
 	}
@@ -50,9 +53,14 @@ func (a AAA) Login(name, password string) (string, error) {
 	if savedPass != password {
 		return "", errors.New("wrong password")
 	}
+
+	if sub == "" {
+		sub = adminRole
+	}
+
 	// create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":  adminRole,
+		"sub":  sub,
 		"name": name,
 		"exp":  jwt.NewNumericDate(time.Now().Add(a.tokenTTL)),
 	})

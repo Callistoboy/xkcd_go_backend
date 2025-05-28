@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"log/slog"
-
 	"net/http"
 	"strings"
 )
@@ -11,7 +9,12 @@ type TokenVerifier interface {
 	Verify(token string) error
 }
 
-func Auth(log *slog.Logger, f http.HandlerFunc, verifier TokenVerifier) http.HandlerFunc {
+type Logger interface {
+	Error(msg string, keysAndValues ...interface{})
+	Debug(msg string, keysAndValues ...interface{})
+}
+
+func Auth(log Logger, f http.HandlerFunc, verifier TokenVerifier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Fields(r.Header.Get("Authorization"))
 		log.Debug("Got token", "token", parts)
