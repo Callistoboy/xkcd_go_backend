@@ -267,62 +267,62 @@ func TestSearchPhrases(t *testing.T) {
 	}
 }
 
-// func TestIndexSearchPhrasesLongTest(t *testing.T) {
-// 	prepare(t)
-// 	time.Sleep(30 * time.Second)
-// 	resp, err := client.Get(address + "/api/isearch?phrase=linux")
-// 	require.NoError(t, err, "failed to search")
-// 	defer resp.Body.Close()
-// 	require.Equal(t, http.StatusOK, resp.StatusCode, "need OK status")
-// 	var comics ComicsReply
-// 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&comics), "decode failed")
-// 	require.Equal(t, 0, comics.Total)
-// 	require.Equal(t, 0, len(comics.Comics))
-// 	update(t)
-// 	time.Sleep(30 * time.Second)
+func TestIndexSearchPhrasesLongTest(t *testing.T) {
+	prepare(t)
+	time.Sleep(30 * time.Second)
+	resp, err := client.Get(address + "/api/isearch?phrase=linux")
+	require.NoError(t, err, "failed to search")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode, "need OK status")
+	var comics ComicsReply
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&comics), "decode failed")
+	require.Equal(t, 0, comics.Total)
+	require.Equal(t, 0, len(comics.Comics))
+	update(t)
+	time.Sleep(30 * time.Second)
 
-// 	testCases := []struct {
-// 		phrase string
-// 		url    string
-// 	}{
-// 		{
-// 			phrase: "linux+cpu+video+machine+русские+хакеры",
-// 			url:    "https://imgs.xkcd.com/comics/supported_features.png",
-// 		},
-// 		{
-// 			phrase: "Binary Christmas Tree",
-// 			url:    "https://imgs.xkcd.com/comics/tree.png",
-// 		},
-// 		{
-// 			phrase: "apple a day -> keeps doctors away",
-// 			url:    "https://imgs.xkcd.com/comics/an_apple_a_day.png",
-// 		},
-// 		{
-// 			phrase: "mines, captcha",
-// 			url:    "https://imgs.xkcd.com/comics/mine_captcha.png",
-// 		},
-// 		{
-// 			phrase: "newton apple's idea",
-// 			url:    "https://imgs.xkcd.com/comics/inspiration.png",
-// 		},
-// 	}
+	testCases := []struct {
+		phrase string
+		url    string
+	}{
+		{
+			phrase: "linux+cpu+video+machine+русские+хакеры",
+			url:    "https://imgs.xkcd.com/comics/supported_features.png",
+		},
+		{
+			phrase: "Binary Christmas Tree",
+			url:    "https://imgs.xkcd.com/comics/tree.png",
+		},
+		{
+			phrase: "apple a day -> keeps doctors away",
+			url:    "https://imgs.xkcd.com/comics/an_apple_a_day.png",
+		},
+		{
+			phrase: "mines, captcha",
+			url:    "https://imgs.xkcd.com/comics/mine_captcha.png",
+		},
+		{
+			phrase: "newton apple's idea",
+			url:    "https://imgs.xkcd.com/comics/inspiration.png",
+		},
+	}
 
-// 	for _, tc := range testCases {
-// 		t.Run(tc.phrase, func(t *testing.T) {
-// 			resp, err := client.Get(address + "/api/isearch?phrase=" + url.QueryEscape(tc.phrase))
-// 			require.NoError(t, err, "failed to search")
-// 			defer resp.Body.Close()
-// 			require.Equal(t, http.StatusOK, resp.StatusCode, "need OK status")
-// 			var comics ComicsReply
-// 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&comics), "decode failed")
-// 			urls := make([]string, 0, len(comics.Comics))
-// 			for _, c := range comics.Comics {
-// 				urls = append(urls, c.URL)
-// 			}
-// 			require.Containsf(t, urls, tc.url, "could not find %q", tc.phrase)
-// 		})
-// 	}
-// }
+	for _, tc := range testCases {
+		t.Run(tc.phrase, func(t *testing.T) {
+			resp, err := client.Get(address + "/api/isearch?phrase=" + url.QueryEscape(tc.phrase))
+			require.NoError(t, err, "failed to search")
+			defer resp.Body.Close()
+			require.Equal(t, http.StatusOK, resp.StatusCode, "need OK status")
+			var comics ComicsReply
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&comics), "decode failed")
+			urls := make([]string, 0, len(comics.Comics))
+			for _, c := range comics.Comics {
+				urls = append(urls, c.URL)
+			}
+			require.Containsf(t, urls, tc.url, "could not find %q", tc.phrase)
+		})
+	}
+}
 
 // 200 tests in packs of 20, with concurrency 10. 100 reqs must be ok, the rest - 503
 func TestSearchConcurrency(t *testing.T) {
