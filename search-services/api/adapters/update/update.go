@@ -2,7 +2,6 @@ package update
 
 import (
 	"context"
-	"log/slog"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -13,12 +12,16 @@ import (
 	updatepb "yadro.com/course/proto/update"
 )
 
+type Logger interface {
+	Error(msg string, keysAndValues ...interface{})
+}
+
 type Client struct {
-	log    *slog.Logger
+	log    Logger
 	client updatepb.UpdateClient
 }
 
-func NewClient(address string, log *slog.Logger) (*Client, error) {
+func NewClient(address string, log Logger) (*Client, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err

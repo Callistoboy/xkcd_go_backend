@@ -22,7 +22,11 @@ type Server struct {
 	service core.Searcher
 }
 
-func (s *Server) Ping(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *Server) Ping(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	err := s.service.Ping(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 

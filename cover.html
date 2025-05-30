@@ -67,15 +67,15 @@
 				
 				<option value="file5">yadro.com/course/api/adapters/search/search.go (57.7%)</option>
 				
-				<option value="file6">yadro.com/course/api/adapters/update/update.go (0.0%)</option>
+				<option value="file6">yadro.com/course/api/adapters/update/update.go (61.5%)</option>
 				
-				<option value="file7">yadro.com/course/api/adapters/words/words.go (0.0%)</option>
+				<option value="file7">yadro.com/course/api/adapters/words/words.go (71.4%)</option>
 				
 				<option value="file8">yadro.com/course/api/config/config.go (0.0%)</option>
 				
 				<option value="file9">yadro.com/course/search/adapters/db/storage.go (0.0%)</option>
 				
-				<option value="file10">yadro.com/course/search/adapters/grpc/server.go (0.0%)</option>
+				<option value="file10">yadro.com/course/search/adapters/grpc/server.go (96.3%)</option>
 				
 				<option value="file11">yadro.com/course/search/adapters/initiator/index_updater.go (0.0%)</option>
 				
@@ -706,7 +706,6 @@ func (c Client) SearchIndex(ctx context.Context, phrase string, limit int) ([]co
 
 import (
         "context"
-        "log/slog"
 
         "google.golang.org/grpc"
         "google.golang.org/grpc/codes"
@@ -717,12 +716,16 @@ import (
         updatepb "yadro.com/course/proto/update"
 )
 
+type Logger interface {
+        Error(msg string, keysAndValues ...interface{})
+}
+
 type Client struct {
-        log    *slog.Logger
+        log    Logger
         client updatepb.UpdateClient
 }
 
-func NewClient(address string, log *slog.Logger) (*Client, error) <span class="cov0" title="0">{
+func NewClient(address string, log Logger) (*Client, error) <span class="cov0" title="0">{
         conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -733,33 +736,33 @@ func NewClient(address string, log *slog.Logger) (*Client, error) <span class="c
         }, nil</span>
 }
 
-func (c Client) Ping(ctx context.Context) error <span class="cov0" title="0">{
+func (c Client) Ping(ctx context.Context) error <span class="cov8" title="1">{
         _, err := c.client.Ping(ctx, &amp;emptypb.Empty{})
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 
-func (c Client) Status(ctx context.Context) (core.UpdateStatus, error) <span class="cov0" title="0">{
+func (c Client) Status(ctx context.Context) (core.UpdateStatus, error) <span class="cov8" title="1">{
         resp, err := c.client.Status(ctx, &amp;emptypb.Empty{})
         if err != nil </span><span class="cov0" title="0">{
                 return core.StatusUpdateUnknown, err
         }</span>
 
-        <span class="cov0" title="0">if resp.Status == updatepb.Status_STATUS_RUNNING </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if resp.Status == updatepb.Status_STATUS_RUNNING </span><span class="cov0" title="0">{
                 return core.StatusUpdateRunning, nil
-        }</span> else<span class="cov0" title="0"> {
+        }</span> else<span class="cov8" title="1"> {
                 return core.StatusUpdateIdle, nil
         }</span>
 }
 
-func (c Client) Stats(ctx context.Context) (core.UpdateStats, error) <span class="cov0" title="0">{
+func (c Client) Stats(ctx context.Context) (core.UpdateStats, error) <span class="cov8" title="1">{
         resp, err := c.client.Stats(ctx, &amp;emptypb.Empty{})
         if err != nil </span><span class="cov0" title="0">{
                 return core.UpdateStats{}, err
         }</span>
-        <span class="cov0" title="0">return core.UpdateStats{
+        <span class="cov8" title="1">return core.UpdateStats{
                 WordsTotal:    int(resp.WordsTotal),
                 WordsUnique:   int(resp.WordsUnique),
                 ComicsTotal:   int(resp.ComicsTotal),
@@ -768,21 +771,21 @@ func (c Client) Stats(ctx context.Context) (core.UpdateStats, error) <span class
 
 }
 
-func (c Client) Update(ctx context.Context) error <span class="cov0" title="0">{
+func (c Client) Update(ctx context.Context) error <span class="cov8" title="1">{
         _, err := c.client.Update(ctx, &amp;emptypb.Empty{})
         if status.Code(err) == codes.AlreadyExists </span><span class="cov0" title="0">{
                 return core.ErrAlreadyExists
         }</span>
 
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 
-func (c Client) Drop(ctx context.Context) error <span class="cov0" title="0">{
+func (c Client) Drop(ctx context.Context) error <span class="cov8" title="1">{
         _, err := c.client.Drop(ctx, &amp;emptypb.Empty{})
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 </pre>
 		
@@ -790,7 +793,6 @@ func (c Client) Drop(ctx context.Context) error <span class="cov0" title="0">{
 
 import (
         "context"
-        "log/slog"
 
         "google.golang.org/grpc"
         "google.golang.org/grpc/credentials/insecure"
@@ -798,12 +800,17 @@ import (
         wordspb "yadro.com/course/proto/words"
 )
 
+type Logger interface {
+        Error(msg string, keysAndValues ...interface{})
+        Info(msg string, keysAndValues ...interface{})
+}
+
 type Client struct {
-        log    *slog.Logger
+        log    Logger
         client wordspb.WordsClient
 }
 
-func NewClient(address string, log *slog.Logger) (*Client, error) <span class="cov0" title="0">{
+func NewClient(address string, log Logger) (*Client, error) <span class="cov0" title="0">{
         conn, err := grpc.NewClient(address,
                 grpc.WithTransportCredentials(insecure.NewCredentials()))
         if err != nil </span><span class="cov0" title="0">{
@@ -812,22 +819,22 @@ func NewClient(address string, log *slog.Logger) (*Client, error) <span class="c
         <span class="cov0" title="0">return &amp;Client{log: log, client: wordspb.NewWordsClient(conn)}, nil</span>
 }
 
-func (c Client) Norm(ctx context.Context, phrase string) ([]string, error) <span class="cov0" title="0">{
+func (c Client) Norm(ctx context.Context, phrase string) ([]string, error) <span class="cov10" title="2">{
         r, err := c.client.Norm(ctx, &amp;wordspb.WordsRequest{Phrase: phrase})
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov1" title="1">{
                 c.log.Error("Could not norm phrase", "error", err)
                 return nil, err
         }</span>
-        <span class="cov0" title="0">c.log.Info("Norm success", "return", r.Words)
+        <span class="cov1" title="1">c.log.Info("Norm success", "return", r.Words)
         return r.Words, nil</span>
 }
 
-func (c Client) Ping(ctx context.Context) error <span class="cov0" title="0">{
+func (c Client) Ping(ctx context.Context) error <span class="cov10" title="2">{
         _, err := c.client.Ping(ctx, &amp;emptypb.Empty{})
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov1" title="1">return nil</span>
 }
 </pre>
 		
@@ -959,54 +966,58 @@ type Server struct {
         service core.Searcher
 }
 
-func (s *Server) Ping(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) <span class="cov0" title="0">{
-        return nil, nil
-}</span>
+func (s *Server) Ping(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) <span class="cov5" title="2">{
+        err := s.service.Ping(ctx)
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov1" title="1">return nil, nil</span>
+}
 
 func (s *Server) Search(
         ctx context.Context, req *searchpb.SearchRequest,
-) (*searchpb.SearchReply, error) <span class="cov0" title="0">{
-        if req.Limit == 0 </span><span class="cov0" title="0">{
+) (*searchpb.SearchReply, error) <span class="cov10" title="4">{
+        if req.Limit == 0 </span><span class="cov1" title="1">{
                 req.Limit = defaultLimit
         }</span>
-        <span class="cov0" title="0">results, err := s.service.Search(ctx, req.Phrase, int(req.Limit))
-        if err != nil </span><span class="cov0" title="0">{
-                if errors.Is(err, core.ErrNotFound) </span><span class="cov0" title="0">{
+        <span class="cov10" title="4">results, err := s.service.Search(ctx, req.Phrase, int(req.Limit))
+        if err != nil </span><span class="cov5" title="2">{
+                if errors.Is(err, core.ErrNotFound) </span><span class="cov1" title="1">{
                         return nil, status.Error(codes.NotFound, "nothing found")
                 }</span>
-                <span class="cov0" title="0">return nil, err</span>
+                <span class="cov1" title="1">return nil, err</span>
         }
-        <span class="cov0" title="0">comics := make([]*searchpb.Comics, 0, len(results))
-        for _, c := range results </span><span class="cov0" title="0">{
+        <span class="cov5" title="2">comics := make([]*searchpb.Comics, 0, len(results))
+        for _, c := range results </span><span class="cov10" title="4">{
                 comics = append(comics, &amp;searchpb.Comics{
                         Id:  int64(c.ID),
                         Url: c.URL,
                 })
         }</span>
-        <span class="cov0" title="0">return &amp;searchpb.SearchReply{Comics: comics}, nil</span>
+        <span class="cov5" title="2">return &amp;searchpb.SearchReply{Comics: comics}, nil</span>
 }
 
 func (s *Server) SearchIndex(
         ctx context.Context, req *searchpb.SearchRequest,
-) (*searchpb.SearchReply, error) <span class="cov0" title="0">{
-        if req.Limit == 0 </span><span class="cov0" title="0">{
+) (*searchpb.SearchReply, error) <span class="cov10" title="4">{
+        if req.Limit == 0 </span><span class="cov1" title="1">{
                 req.Limit = defaultLimit
         }</span>
-        <span class="cov0" title="0">results, err := s.service.SearchIndex(ctx, req.Phrase, int(req.Limit))
-        if err != nil </span><span class="cov0" title="0">{
-                if errors.Is(err, core.ErrNotFound) </span><span class="cov0" title="0">{
+        <span class="cov10" title="4">results, err := s.service.SearchIndex(ctx, req.Phrase, int(req.Limit))
+        if err != nil </span><span class="cov5" title="2">{
+                if errors.Is(err, core.ErrNotFound) </span><span class="cov1" title="1">{
                         return nil, status.Error(codes.NotFound, "nothing found")
                 }</span>
-                <span class="cov0" title="0">return nil, err</span>
+                <span class="cov1" title="1">return nil, err</span>
         }
-        <span class="cov0" title="0">comics := make([]*searchpb.Comics, 0, len(results))
-        for _, c := range results </span><span class="cov0" title="0">{
+        <span class="cov5" title="2">comics := make([]*searchpb.Comics, 0, len(results))
+        for _, c := range results </span><span class="cov10" title="4">{
                 comics = append(comics, &amp;searchpb.Comics{
                         Id:  int64(c.ID),
                         Url: c.URL,
                 })
         }</span>
-        <span class="cov0" title="0">return &amp;searchpb.SearchReply{Comics: comics}, nil</span>
+        <span class="cov5" title="2">return &amp;searchpb.SearchReply{Comics: comics}, nil</span>
 }
 </pre>
 		

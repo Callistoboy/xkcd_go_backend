@@ -2,7 +2,6 @@ package words
 
 import (
 	"context"
-	"log/slog"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -10,12 +9,17 @@ import (
 	wordspb "yadro.com/course/proto/words"
 )
 
+type Logger interface {
+	Error(msg string, keysAndValues ...interface{})
+	Info(msg string, keysAndValues ...interface{})
+}
+
 type Client struct {
-	log    *slog.Logger
+	log    Logger
 	client wordspb.WordsClient
 }
 
-func NewClient(address string, log *slog.Logger) (*Client, error) {
+func NewClient(address string, log Logger) (*Client, error) {
 	conn, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
