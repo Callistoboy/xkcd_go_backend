@@ -93,7 +93,7 @@
 				
 				<option value="file18">yadro.com/course/update/adapters/grpc/server.go (0.0%)</option>
 				
-				<option value="file19">yadro.com/course/update/adapters/words/words.go (0.0%)</option>
+				<option value="file19">yadro.com/course/update/adapters/words/words.go (66.7%)</option>
 				
 				<option value="file20">yadro.com/course/update/adapters/xkcd/xkcd.go (0.0%)</option>
 				
@@ -101,7 +101,7 @@
 				
 				<option value="file22">yadro.com/course/update/core/service.go (0.0%)</option>
 				
-				<option value="file23">yadro.com/course/words/words/words.go (0.0%)</option>
+				<option value="file23">yadro.com/course/words/words/words.go (81.2%)</option>
 				
 				</select>
 			</div>
@@ -1539,17 +1539,17 @@ func NewClient(address string, log *slog.Logger) (*Client, error) <span class="c
         }, nil</span>
 }
 
-func (c Client) Norm(ctx context.Context, phrase string) ([]string, error) <span class="cov0" title="0">{
+func (c Client) Norm(ctx context.Context, phrase string) ([]string, error) <span class="cov10" title="3">{
         r, err := c.client.Norm(ctx, &amp;wordspb.WordsRequest{Phrase: phrase})
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov6" title="2">{
                 c.log.Error("Could not norm phrase", "error", err)
                 return nil, err
         }</span>
-        <span class="cov0" title="0">c.log.Info("Norm success", "return", r.Words)
+        <span class="cov1" title="1">c.log.Info("Norm success", "return", r.Words)
         return r.Words, nil</span>
 }
 
-func (c Client) Ping(ctx context.Context) error <span class="cov0" title="0">{
+func (c Client) Ping(ctx context.Context) error <span class="cov1" title="1">{
         _, err := c.client.Ping(ctx, nil)
         return err
 }</span>
@@ -1878,40 +1878,40 @@ import (
         "github.com/kljensen/snowball/english"
 )
 
-func cleanText(c rune) bool <span class="cov0" title="0">{
+func cleanText(c rune) bool <span class="cov10" title="42">{
         return !(unicode.IsLetter(c) || unicode.IsNumber(c))
 }</span>
 
-func Norm(phrase string) []string <span class="cov0" title="0">{
+func Norm(phrase string) []string <span class="cov4" title="5">{
         phrases := strings.FieldsFunc(phrase, cleanText)
         stemmed := make(map[string]bool, len(phrases))
-        for _, word := range phrases </span><span class="cov0" title="0">{
+        for _, word := range phrases </span><span class="cov6" title="8">{
 
                 // empty check
                 if word == "" </span><span class="cov0" title="0">{
                         continue</span>
                 }
 
-                <span class="cov0" title="0">word = strings.ToLower(word)
+                <span class="cov6" title="8">word = strings.ToLower(word)
 
-                if english.IsStopWord(word) </span><span class="cov0" title="0">{
+                if english.IsStopWord(word) </span><span class="cov1" title="1">{
                         continue</span>
                 }
 
                 // stemming
-                <span class="cov0" title="0">stem, err := snowball.Stem(word, "english", true)
+                <span class="cov5" title="7">stem, err := snowball.Stem(word, "english", true)
                 if err != nil </span><span class="cov0" title="0">{
                         continue</span>
                 }
 
                 // empty after stemming check
-                <span class="cov0" title="0">if stem == "" </span><span class="cov0" title="0">{
+                <span class="cov5" title="7">if stem == "" </span><span class="cov0" title="0">{
                         continue</span>
                 }
 
-                <span class="cov0" title="0">stemmed[stem] = true</span>
+                <span class="cov5" title="7">stemmed[stem] = true</span>
         }
-        <span class="cov0" title="0">return slices.Collect(maps.Keys(stemmed))</span>
+        <span class="cov4" title="5">return slices.Collect(maps.Keys(stemmed))</span>
 }
 </pre>
 		
