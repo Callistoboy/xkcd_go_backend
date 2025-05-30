@@ -83,9 +83,9 @@
 				
 				<option value="file13">yadro.com/course/search/config/config.go (0.0%)</option>
 				
-				<option value="file14">yadro.com/course/search/core/models.go (0.0%)</option>
+				<option value="file14">yadro.com/course/search/core/models.go (36.4%)</option>
 				
-				<option value="file15">yadro.com/course/search/core/service.go (0.0%)</option>
+				<option value="file15">yadro.com/course/search/core/service.go (62.9%)</option>
 				
 				<option value="file16">yadro.com/course/update/adapters/db/migrations.go (0.0%)</option>
 				
@@ -1140,7 +1140,7 @@ type Index struct {
         lock  sync.RWMutex
 }
 
-func NewIndex() *Index <span class="cov0" title="0">{
+func NewIndex() *Index <span class="cov7" title="5">{
         return &amp;Index{
                 index: make(map[string][]int),
         }
@@ -1160,7 +1160,7 @@ func (i *Index) Put(id int, keywords []string) <span class="cov0" title="0">{
         <span class="cov0" title="0">i.lock.Unlock()</span>
 }
 
-func (i *Index) Get(keyword string) []int <span class="cov0" title="0">{
+func (i *Index) Get(keyword string) []int <span class="cov10" title="8">{
         i.lock.RLock()
         defer i.lock.RUnlock()
         return slices.Clone(i.index[keyword])
@@ -1196,79 +1196,82 @@ func NewService(
         }, nil
 }</span>
 
-func (s *Service) Ping(ctx context.Context) error <span class="cov0" title="0">{
+func (s *Service) Ping(ctx context.Context) error <span class="cov4" title="2">{
         return nil
 }</span>
 
-func (s *Service) Search(ctx context.Context, phrase string, limit int) ([]Comics, error) <span class="cov0" title="0">{
+func (s *Service) Search(ctx context.Context, phrase string, limit int) ([]Comics, error) <span class="cov7" title="5">{
         normed, err := s.words.Norm(ctx, phrase)
-        if err != nil </span><span class="cov0" title="0">{
+
+        if err != nil </span><span class="cov1" title="1">{
                 s.log.Error("failed to find keywords", "error", err)
                 return nil, err
         }</span>
-        <span class="cov0" title="0">s.log.Debug("normalized query", "keywords", normed)
+        <span class="cov7" title="4">s.log.Debug("normalized query", "keywords", normed)
 
         scores := map[int]int{}
-        for _, keyword := range normed </span><span class="cov0" title="0">{
+
+        for _, keyword := range normed </span><span class="cov7" title="5">{
                 IDs, err := s.db.Search(ctx, keyword)
-                if err != nil </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov1" title="1">{
                         s.log.Error("failed to search keyword in DB", "error", err)
                         return nil, err
                 }</span>
-                <span class="cov0" title="0">for _, ID := range IDs </span><span class="cov0" title="0">{
+                <span class="cov7" title="4">for _, ID := range IDs </span><span class="cov7" title="4">{
                         scores[ID]++
                 }</span>
         }
 
-        <span class="cov0" title="0">return s.fetch(ctx, scores, limit)</span>
+        <span class="cov5" title="3">return s.fetch(ctx, scores, limit)</span>
 }
 
-func (s *Service) SearchIndex(ctx context.Context, phrase string, limit int) ([]Comics, error) <span class="cov0" title="0">{
+func (s *Service) SearchIndex(ctx context.Context, phrase string, limit int) ([]Comics, error) <span class="cov7" title="5">{
         keywords, err := s.words.Norm(ctx, phrase)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov1" title="1">{
                 s.log.Error("failed to find keywords", "error", err)
                 return nil, err
         }</span>
-        <span class="cov0" title="0">s.log.Debug("normalized query", "keywords", keywords)
+        <span class="cov7" title="4">s.log.Debug("normalized query", "keywords", keywords)
 
         // comics ID -&gt; number of findings
         scores := map[int]int{}
-        for _, keyword := range keywords </span><span class="cov0" title="0">{
+        for _, keyword := range keywords </span><span class="cov10" title="8">{
                 for _, ID := range s.index.Get(keyword) </span><span class="cov0" title="0">{
                         scores[ID]++
                 }</span>
         }
 
-        <span class="cov0" title="0">return s.fetch(ctx, scores, limit)</span>
+        <span class="cov7" title="4">return s.fetch(ctx, scores, limit)</span>
 
 }
 
-func (s *Service) fetch(ctx context.Context, scores map[int]int, limit int) ([]Comics, error) <span class="cov0" title="0">{
+func (s *Service) fetch(ctx context.Context, scores map[int]int, limit int) ([]Comics, error) <span class="cov9" title="7">{
         s.log.Debug("relevant comics", "count", len(scores))
 
         // sort by number of findings
-        sorted := slices.SortedFunc(maps.Keys(scores), func(a, b int) int </span><span class="cov0" title="0">{
+        sorted := slices.SortedFunc(maps.Keys(scores), func(a, b int) int </span><span class="cov4" title="2">{
                 return cmp.Compare(scores[b], scores[a]) // desc
         }</span>)
 
         // limit results
-        <span class="cov0" title="0">if len(sorted) &lt; limit </span><span class="cov0" title="0">{
+        <span class="cov9" title="7">if len(sorted) &lt; limit </span><span class="cov7" title="5">{
                 limit = len(sorted)
         }</span>
-        <span class="cov0" title="0">sorted = sorted[:limit]
+        <span class="cov9" title="7">sorted = sorted[:limit]
 
         // fetch comics
         result := make([]Comics, 0, len(sorted))
-        for _, ID := range sorted </span><span class="cov0" title="0">{
+        for _, ID := range sorted </span><span class="cov4" title="2">{
                 comics, err := s.db.Get(ctx, ID)
+                s.log.Debug("fetching", "comics", comics)
                 if err != nil </span><span class="cov0" title="0">{
                         s.log.Error("failed to fetch comics", "id", ID, "error", err)
                         return nil, err
                 }</span>
-                <span class="cov0" title="0">comics.Score = scores[ID]
+                <span class="cov4" title="2">comics.Score = scores[ID]
                 result = append(result, comics)</span>
         }
-        <span class="cov0" title="0">s.log.Debug("returning comics", "count", len(result))
+        <span class="cov9" title="7">s.log.Debug("returning comics", "count", len(result))
 
         return result, nil</span>
 }

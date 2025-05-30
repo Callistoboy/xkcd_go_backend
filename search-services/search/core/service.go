@@ -33,6 +33,7 @@ func (s *Service) Ping(ctx context.Context) error {
 
 func (s *Service) Search(ctx context.Context, phrase string, limit int) ([]Comics, error) {
 	normed, err := s.words.Norm(ctx, phrase)
+
 	if err != nil {
 		s.log.Error("failed to find keywords", "error", err)
 		return nil, err
@@ -40,6 +41,7 @@ func (s *Service) Search(ctx context.Context, phrase string, limit int) ([]Comic
 	s.log.Debug("normalized query", "keywords", normed)
 
 	scores := map[int]int{}
+
 	for _, keyword := range normed {
 		IDs, err := s.db.Search(ctx, keyword)
 		if err != nil {
@@ -92,6 +94,7 @@ func (s *Service) fetch(ctx context.Context, scores map[int]int, limit int) ([]C
 	result := make([]Comics, 0, len(sorted))
 	for _, ID := range sorted {
 		comics, err := s.db.Get(ctx, ID)
+		s.log.Debug("fetching", "comics", comics)
 		if err != nil {
 			s.log.Error("failed to fetch comics", "id", ID, "error", err)
 			return nil, err
